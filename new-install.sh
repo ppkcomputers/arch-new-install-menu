@@ -7,7 +7,7 @@ echo "   ARCH LINUX POST-INSTALLATION MENU      "
 echo "==========================================="
 
 echo ":: Updating System Repositories..."
-sudo pacman -Syu --noconfirm
+#sudo pacman -Syu --noconfirm
 
 # --- FUNCTIONS ---
 
