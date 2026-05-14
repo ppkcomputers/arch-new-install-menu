@@ -1,19 +1,16 @@
 #!/bin/bash
 
-# Exit on error
-set -e
-
-## --- HEADING ---
+# Remove 'set -e' so the script doesn't exit on minor warnings
 clear
 echo "==========================================="
 echo "   ARCH LINUX POST-INSTALLATION MENU      "
 echo "==========================================="
+
 echo ":: Updating System Repositories..."
 sudo pacman -Syu --noconfirm
 
-## --- FUNCTIONS ---
+# --- FUNCTIONS ---
 
-# Function to install yay
 install_yay() {
     if ! command -v yay &> /dev/null; then
         echo ":: Installing yay..."
@@ -27,32 +24,18 @@ install_yay() {
     fi
 }
 
-# Function to handle services
 manage_service() {
-    echo -n ":: Would you like to enable and start the $1 service? (y/n): "
+    echo -n ":: Enable and start $1? (y/n): "
     read -r answer
     if [[ "$answer" =~ ^[Yy]$ ]]; then
         sudo systemctl enable --now "$1"
     fi
 }
 
-## --- MAIN MENU ---
-PS3='Please enter your choice (or type 13 to exit): '
-options=(
-    "yay"
-    "Brave"
-    "Dunst"
-    "Kate"
-    "swww"
-    "Thunar"
-    "Kitty"
-    "snapper"
-    "snap-pac"
-    "grub-btrfs"
-    "hyprpolkitagent"
-    "Install All"
-    "Quit"
-)
+# --- MENU LOGIC ---
+
+PS3='Please enter your choice: '
+options=("yay" "Brave" "Dunst" "Kate" "swww" "Thunar" "Kitty" "snapper" "snap-pac" "grub-btrfs" "hyprpolkitagent" "Install All" "Quit")
 
 select opt in "${options[@]}"
 do
@@ -61,7 +44,8 @@ do
             install_yay
             ;;
         "Brave")
-            sudo pacman -S --noconfirm brave-bin || yay -S --noconfirm brave-bin
+            # Brave is usually AUR (brave-bin)
+            yay -S --noconfirm brave-bin
             ;;
         "Dunst")
             sudo pacman -S --noconfirm dunst
@@ -91,19 +75,23 @@ do
             ;;
         "hyprpolkitagent")
             yay -S --noconfirm hyprpolkitagent
-            manage_service "hyprpolkitagent"
             ;;
         "Install All")
-            echo "Installing everything..."
             install_yay
-            # Installs a mix of pacman and AUR packages
-            sudo pacman -S --needed --noconfirm brave-bin dunst kate thunar kitty snapper snap-pac grub-btrfs || \
+            sudo pacman -S --needed --noconfirm dunst kate thunar kitty snapper snap-pac grub-btrfs
             yay -S --needed --noconfirm brave-bin swww hyprpolkitagent
             ;;
         "Quit")
+            echo "Done!"
             break
             ;;
-        *) echo "Invalid option $REPLY";;
+        *) 
+            echo "Invalid option $REPLY"
+            ;;
     esac
-    echo -e "\n:: Task complete. Choose another or Exit."
+
+    # This keeps the menu visible after an action
+    echo -e "\n-------------------------------------------"
+    echo "Task Complete. Select another or 13 to Exit."
+    echo "-------------------------------------------"
 done
