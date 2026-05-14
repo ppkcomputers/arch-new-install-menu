@@ -1,47 +1,109 @@
 #!/bin/bash
 
-# Exit immediately if a command exits with a non-zero status
+# Exit on error
 set -e
 
-echo "------------------------------------------"
-echo "   Arch Linux - Yay Installation Script   "
-echo "------------------------------------------"
+## --- HEADING ---
+clear
+echo "==========================================="
+echo "   ARCH LINUX POST-INSTALLATION MENU      "
+echo "==========================================="
+echo ":: Updating System Repositories..."
+sudo pacman -Syu --noconfirm
 
-# 1. Check if yay is already installed
-if command -v yay &> /dev/null; then
-    echo ":: yay is already installed. Skipping to end..."
-else
-    # 2. Synchronize repositories and install base-devel/git
-    echo ":: Updating system and installing dependencies..."
-    sudo pacman -Syu --needed --noconfirm base-devel git
+## --- FUNCTIONS ---
 
-    # 3. Create a temporary build directory
-    # Using /tmp ensures it's wiped on reboot if the script fails
-    TEMP_BUILD_DIR=$(mktemp -d)
-    echo ":: Created temporary directory: $TEMP_BUILD_DIR"
+# Function to install yay
+install_yay() {
+    if ! command -v yay &> /dev/null; then
+        echo ":: Installing yay..."
+        sudo pacman -S --needed --noconfirm base-devel git
+        TEMP_DIR=$(mktemp -d)
+        git clone https://aur.archlinux.org/yay-bin.git "$TEMP_DIR/yay-bin"
+        cd "$TEMP_DIR/yay-bin" && makepkg -si --noconfirm
+        cd ~ && rm -rf "$TEMP_DIR"
+    else
+        echo ":: yay is already installed."
+    fi
+}
 
-    # 4. Clone yay-bin from the AUR
-    echo ":: Cloning yay-bin..."
-    git clone https://aur.archlinux.org/yay-bin.git "$TEMP_BUILD_DIR/yay-bin"
+# Function to handle services
+manage_service() {
+    echo -n ":: Would you like to enable and start the $1 service? (y/n): "
+    read -r answer
+    if [[ "$answer" =~ ^[Yy]$ ]]; then
+        sudo systemctl enable --now "$1"
+    fi
+}
 
-    # 5. Build and install
-    cd "$TEMP_BUILD_DIR/yay-bin"
-    echo ":: Building and installing package..."
-    
-    # -s: Install missing dependencies
-    # -i: Install the package after building
-    # --noconfirm: Don't ask for permission (standard for automation)
-    makepkg -si --noconfirm
+## --- MAIN MENU ---
+PS3='Please enter your choice (or type 13 to exit): '
+options=(
+    "yay"
+    "Brave"
+    "Dunst"
+    "Kate"
+    "swww"
+    "Thunar"
+    "Kitty"
+    "snapper"
+    "snap-pac"
+    "grub-btrfs"
+    "hyprpolkitagent"
+    "Install All"
+    "Quit"
+)
 
-    # 6. Cleanup
-    echo ":: Cleaning up temporary files..."
-    cd ~
-    rm -rf "$TEMP_BUILD_DIR"
-
-    echo "------------------------------------------"
-    echo "   yay has been successfully installed!   "
-    echo "------------------------------------------"
-fi
-
-# Example of where you can add more tasks later:
-# echo ":: Proceeding with next menu items..."
+select opt in "${options[@]}"
+do
+    case $opt in
+        "yay")
+            install_yay
+            ;;
+        "Brave")
+            sudo pacman -S --noconfirm brave-bin || yay -S --noconfirm brave-bin
+            ;;
+        "Dunst")
+            sudo pacman -S --noconfirm dunst
+            manage_service "dunst"
+            ;;
+        "Kate")
+            sudo pacman -S --noconfirm kate
+            ;;
+        "swww")
+            yay -S --noconfirm swww
+            ;;
+        "Thunar")
+            sudo pacman -S --noconfirm thunar
+            ;;
+        "Kitty")
+            sudo pacman -S --noconfirm kitty
+            ;;
+        "snapper")
+            sudo pacman -S --noconfirm snapper
+            ;;
+        "snap-pac")
+            sudo pacman -S --noconfirm snap-pac
+            ;;
+        "grub-btrfs")
+            sudo pacman -S --noconfirm grub-btrfs
+            manage_service "grub-btrfsd"
+            ;;
+        "hyprpolkitagent")
+            yay -S --noconfirm hyprpolkitagent
+            manage_service "hyprpolkitagent"
+            ;;
+        "Install All")
+            echo "Installing everything..."
+            install_yay
+            # Installs a mix of pacman and AUR packages
+            sudo pacman -S --needed --noconfirm brave-bin dunst kate thunar kitty snapper snap-pac grub-btrfs || \
+            yay -S --needed --noconfirm brave-bin swww hyprpolkitagent
+            ;;
+        "Quit")
+            break
+            ;;
+        *) echo "Invalid option $REPLY";;
+    esac
+    echo -e "\n:: Task complete. Choose another or Exit."
+done
