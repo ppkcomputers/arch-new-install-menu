@@ -9,27 +9,22 @@ CHECKMARK="${GREEN}✔${NC}"
 # --- FUNCTIONS ---
 
 is_installed() {
-    if pacman -Qi "$1" &> /dev/null; then
-        return 0
-    else
-        return 1
-    fi
+    pacman -Qi "$1" &> /dev/null
 }
 
-# New helper function to ensure yay is present before AUR tasks
 ensure_yay() {
     if ! command -v yay &> /dev/null; then
-        echo -e "${RED}:: Error: yay is not installed but is required for this action.${NC}"
+        echo -e "${RED}:: Error: yay is not installed but is required.${NC}"
         read -p ":: Would you like to install yay now? (y/n): " yn
         if [[ "$yn" =~ ^[Yy]$ ]]; then
             install_yay
         else
-            echo ":: Skipping installation because yay is missing."
+            echo ":: Skipping because yay is missing."
             sleep 2
-            return 1 # Failure
+            return 1
         fi
     fi
-    return 0 # Success
+    return 0
 }
 
 show_header() {
@@ -37,14 +32,7 @@ show_header() {
     echo "==========================================="
     echo "    ARCH LINUX POST-INSTALLATION MENU      "
     echo "==========================================="
-}
-
-manage_service() {
-    echo -e "\n"
-    read -p ":: Enable and start $1? (y/n): " answer
-    if [[ "$answer" =~ ^[Yy]$ ]]; then
-        sudo systemctl enable --now "$1"
-    fi
+    echo ""
 }
 
 install_yay() {
@@ -55,12 +43,21 @@ install_yay() {
         git clone https://aur.archlinux.org/yay-bin.git "$TEMP_DIR/yay-bin"
         cd "$TEMP_DIR/yay-bin" && makepkg -si --noconfirm
         cd ~ && rm -rf "$TEMP_DIR"
+        echo ":: yay installed successfully."
+        sleep 2
     else
         echo ":: yay is already installed."
     fi
 }
 
-## --- MAIN MENU LOOP ---
+manage_service() {
+    read -p ":: Enable and start $1? (y/n): " answer
+    if [[ "$answer" =~ ^[Yy]$ ]]; then
+        sudo systemctl enable --now "$1"
+    fi
+}
+
+# --- MAIN MENU ---
 while true; do
     show_header
 
@@ -76,17 +73,18 @@ while true; do
 
         if [[ $i -lt 11 ]]; then
             if is_installed "$item"; then
-                printf "%2d) %-18b %b\n" "$idx" "$item" "$CHECKMARK"
+                printf "%2d) %-18s %b\n" "$idx" "$item" "$CHECKMARK"
             else
-                printf "%2d) %-18b\n" "$idx" "$item"
+                printf "%2d) %-18s\n" "$idx" "$item"
             fi
         else
-            printf "%2d) %-18b\n" "$idx" "$item"
+            printf "%2d) %s\n" "$idx" "$item"
         fi
     done
 
     echo ""
     read -p "Choice: " choice
+    echo ""
 
     case $choice in
         1)  install_yay ;;
@@ -104,7 +102,11 @@ while true; do
             install_yay
             sudo pacman -S --needed --noconfirm dunst kate thunar kitty snapper snap-pac grub-btrfs
             yay -S --needed --noconfirm brave-bin swww hyprpolkitagent ;;
-        13) exit 0 ;;
-        *)  echo "Invalid option"; sleep 1 ;;
+        13) echo "Exiting..."; exit 0 ;;
+        *)  echo -e "${RED}Invalid option. Please try again.${NC}"
+            sleep 1.2 ;;
     esac
+
+    # Small delay to prevent flickering on fast loops
+    sleep 0.4
 done
