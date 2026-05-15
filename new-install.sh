@@ -6,6 +6,8 @@ RED=$(printf '\033[0;31m')
 NC=$(printf '\033[0m')
 CHECKMARK="${GREEN}✔${NC}"
 
+sudo pacman -Syu --noconfirm
+
 # --- FUNCTIONS ---
 
 is_installed() {
@@ -62,7 +64,7 @@ install_yay() {
 ## --- MAIN MENU LOOP ---
 while true; do
     show_header
-    
+
     apps=("yay" "brave-bin" "dunst" "kate" "swww" "thunar" "kitty" "snapper" "snap-pac" "grub-btrfs" "hyprpolkitagent")
     all_options=("${apps[@]}" "Install All" "Quit")
 
@@ -72,7 +74,7 @@ while true; do
     for i in "${!all_options[@]}"; do
         idx=$((i + 1))
         item="${all_options[$i]}"
-        
+
         if [[ $i -lt 11 ]]; then
             if is_installed "$item"; then
                 printf "%2d) %-18b %b\n" "$idx" "$item" "$CHECKMARK"
@@ -100,7 +102,7 @@ while true; do
         9)  sudo pacman -S --noconfirm snap-pac ;;
         10) sudo pacman -S --noconfirm grub-btrfs && manage_service "grub-btrfsd" ;;
         11) ensure_yay && yay -S --noconfirm hyprpolkitagent ;;
-        12) 
+        12)
             install_yay
             sudo pacman -S --needed --noconfirm dunst kate thunar kitty snapper snap-pac grub-btrfs
             yay -S --needed --noconfirm brave-bin swww hyprpolkitagent ;;
