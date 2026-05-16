@@ -83,10 +83,10 @@ install_yay() {
 robust_install() {
     local name="$1"
     local cmd="$2"
-    
+
     echo -e "\n${GREEN}:: Processing: $name...${NC}"
     eval "$cmd"
-    
+
     if is_installed "$name"; then
         return 0
     else
@@ -94,7 +94,7 @@ robust_install() {
         # Auto-Resolution Mode: Refresh keys and resolve minor lockups
         sudo pacman -Sy
         eval "$cmd"
-        
+
         if is_installed "$name"; then
             return 0
         else
@@ -148,38 +148,38 @@ while true; do
         12)
             echo ":: Executing sequential installation master-list..."
             failed_apps=()
-            
+
             # 1. yay
             install_yay
             if ! command -v yay &> /dev/null; then failed_apps+=("yay (AUR helper failing entirely)"); fi
-            
+
             # 2. brave-bin
             if ! robust_install "brave-bin" "ensure_yay && yay -S --noconfirm brave-bin"; then failed_apps+=("brave-bin"); fi
-            
+
             # 3. dunst
             if ! robust_install "dunst" "sudo pacman -S --noconfirm dunst && manage_service 'dunst'"; then failed_apps+=("dunst"); fi
-            
+
             # 4. kate
             if ! robust_install "kate" "sudo pacman -S --noconfirm kate"; then failed_apps+=("kate"); fi
-            
+
             # 5. swww / awww
             if ! robust_install "swww" "ensure_yay && (yay -S --noconfirm swww || yay -S --noconfirm awww)"; then failed_apps+=("swww/awww"); fi
-            
+
             # 6. thunar
             if ! robust_install "thunar" "sudo pacman -S --noconfirm thunar"; then failed_apps+=("thunar"); fi
-            
+
             # 7. snapper
             if ! robust_install "snapper" "sudo pacman -S --noconfirm snapper"; then failed_apps+=("snapper"); fi
-            
+
             # 8. snap-pac
             if ! robust_install "snap-pac" "sudo pacman -S --noconfirm snap-pac"; then failed_apps+=("snap-pac"); fi
-            
+
             # 9. grub-btrfs
             if ! robust_install "grub-btrfs" "sudo pacman -S --noconfirm grub-btrfs && manage_service 'grub-btrfsd'"; then failed_apps+=("grub-btrfs"); fi
-            
+
             # 10. hyprpolkitagent
             if ! robust_install "hyprpolkitagent" "ensure_yay && yay -S --noconfirm hyprpolkitagent"; then failed_apps+=("hyprpolkitagent"); fi
-            
+
             # --- FINAL EVALUATION BREAKPOINT ---
             echo -e "\n==========================================="
             if [ ${#failed_apps[@]} -eq 0 ]; then
@@ -213,7 +213,7 @@ while true; do
 
                 echo ":: Cleaning leftover dependencies and package caches..."
                 sudo pacman -Sc --noconfirm
-                
+
                 echo ":: Cleanup complete!"
                 sleep 2
             fi
