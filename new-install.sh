@@ -6,7 +6,22 @@ RED=$(printf '\033[0;31m')
 NC=$(printf '\033[0m')
 CHECKMARK="${GREEN}✔${NC}"
 
-sudo pacman -Syu --noconfirm
+# --- SMART UPDATE CHECK ---
+echo ":: Checking for system updates..."
+
+# Ensure pacman-contrib is installed so we can use checkupdates
+if ! command -v checkupdates &> /dev/null; then
+    sudo pacman -S --needed --noconfirm pacman-contrib
+fi
+
+# checkupdates outputs a list if there are updates, or returns nothing if system is up to date
+if checkupdates &> /dev/null; then
+    echo ":: Updates found! Upgrading system..."
+    sudo pacman -Syu --noconfirm
+else
+    echo ":: System is already up to date. Proceeding to menu..."
+    sleep 1
+fi
 
 # --- FUNCTIONS ---
 
@@ -114,7 +129,6 @@ while true; do
                 sudo systemctl disable --now dunst grub-btrfsd hyprpolkitagent &> /dev/null
 
                 echo ":: Safely removing main packages..."
-                # Using -Rns to remove packages and their unneeded config/dependencies safely
                 sudo pacman -Rns --noconfirm brave-bin dunst kate swww thunar kitty snapper snap-pac grub-btrfs hyprpolkitagent yay-bin yay 2> /dev/null
 
                 echo ":: Cleaning leftover dependencies and package caches..."
