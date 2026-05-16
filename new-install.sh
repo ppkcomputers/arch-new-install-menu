@@ -26,7 +26,11 @@ fi
 # --- FUNCTIONS ---
 
 is_installed() {
+    # Handles normal packages
     if pacman -Qi "$1" &> /dev/null; then
+        return 0
+    # Special fallback handler for the swww -> awww repository transition
+    elif [[ "$1" == "swww" ]] && pacman -Qi "awww" &> /dev/null; then
         return 0
     else
         return 1
@@ -110,7 +114,7 @@ while true; do
         2)  ensure_yay && yay -S --noconfirm brave-bin ;;
         3)  sudo pacman -S --noconfirm dunst && manage_service "dunst" ;;
         4)  sudo pacman -S --noconfirm kate ;;
-        5)  ensure_yay && yay -S --noconfirm swww ;;
+        5)  ensure_yay && (yay -S --noconfirm swww || yay -S --noconfirm awww) ;;
         6)  sudo pacman -S --noconfirm thunar ;;
         7)  sudo pacman -S --noconfirm kitty ;;
         8)  sudo pacman -S --noconfirm snapper ;;
@@ -122,19 +126,22 @@ while true; do
             sudo pacman -S --needed --noconfirm dunst kate thunar kitty snapper snap-pac grub-btrfs
             yay -S --needed --noconfirm brave-bin swww hyprpolkitagent ;;
         13)
-            echo -e "\n${RED}:: Warning: This will uninstall the menu software and dependencies safely.${NC}"
+            echo -e "\n${RED}:: Warning: This will uninstall the menu software safely (Except Kitty).${NC}"
             read -p ":: Are you sure you want to proceed? (y/n): " clean_yn < /dev/tty
             if [[ "$clean_yn" =~ ^[Yy]$ ]]; then
                 echo ":: Stopping active services..."
                 sudo systemctl disable --now dunst grub-btrfsd hyprpolkitagent &> /dev/null
 
                 echo ":: Safely removing main packages..."
-                sudo pacman -Rns --noconfirm brave-bin dunst kate swww thunar kitty snapper snap-pac grub-btrfs hyprpolkitagent yay-bin yay 2> /dev/null
+                # CRITICAL: Ordered specifically to clear out dependent packages (snap-pac/grub-btrfs) BEFORE core packages (snapper)
+                # Note: Includes both 'swww' and 'awww' to match system states completely; 'kitty' remains omitted.
+                for target_pkg in snap-pac grub-btrfs snapper brave-bin dunst kate swww awww thunar hyprpolkitagent yay-bin yay; do
+                    if is_installed "$target_pkg"; then
+                        sudo pacman -Rns --noconfirm "$target_pkg"
+                    fi
+                done
 
                 echo ":: Cleaning leftover dependencies and package caches..."
-                if command -v yay &> /dev/null; then
-                    yay -Yc --noconfirm &> /dev/null
-                fi
                 sudo pacman -Sc --noconfirm
 
                 echo ":: Cleanup complete!"
