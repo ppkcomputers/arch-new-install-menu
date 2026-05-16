@@ -66,7 +66,7 @@ while true; do
     show_header
 
     apps=("yay" "brave-bin" "dunst" "kate" "swww" "thunar" "kitty" "snapper" "snap-pac" "grub-btrfs" "hyprpolkitagent")
-    all_options=("${apps[@]}" "Install All" "Quit")
+    all_options=("${apps[@]}" "Install All" "Remove & Clean All" "Quit")
 
     echo "Select an option to install:"
     echo ""
@@ -106,7 +106,28 @@ while true; do
             install_yay
             sudo pacman -S --needed --noconfirm dunst kate thunar kitty snapper snap-pac grub-btrfs
             yay -S --needed --noconfirm brave-bin swww hyprpolkitagent ;;
-        13) exit 0 ;;
+        13)
+            echo -e "\n${RED}:: Warning: This will uninstall the menu software and dependencies safely.${NC}"
+            read -p ":: Are you sure you want to proceed? (y/n): " clean_yn < /dev/tty
+            if [[ "$clean_yn" =~ ^[Yy]$ ]]; then
+                echo ":: Stopping active services..."
+                sudo systemctl disable --now dunst grub-btrfsd hyprpolkitagent &> /dev/null
+
+                echo ":: Safely removing main packages..."
+                # Using -Rns to remove packages and their unneeded config/dependencies safely
+                sudo pacman -Rns --noconfirm brave-bin dunst kate swww thunar kitty snapper snap-pac grub-btrfs hyprpolkitagent yay-bin yay 2> /dev/null
+
+                echo ":: Cleaning leftover dependencies and package caches..."
+                if command -v yay &> /dev/null; then
+                    yay -Yc --noconfirm &> /dev/null
+                fi
+                sudo pacman -Sc --noconfirm
+
+                echo ":: Cleanup complete!"
+                sleep 2
+            fi
+            ;;
+        14) exit 0 ;;
         *)  echo "Invalid option. Please try again."; sleep 1.5 ;;
     esac
 done
