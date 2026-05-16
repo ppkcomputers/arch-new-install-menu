@@ -3,6 +3,7 @@
 # --- COLORS ---
 GREEN=$(printf '\033[0;32m')
 RED=$(printf '\033[0;31m')
+YELLOW=$(printf '\033[0;33m')
 NC=$(printf '\033[0m')
 CHECKMARK="${GREEN}✔${NC}"
 
@@ -26,10 +27,8 @@ fi
 # --- FUNCTIONS ---
 
 is_installed() {
-    # Handles normal packages
     if pacman -Qi "$1" &> /dev/null; then
         return 0
-    # Special fallback handler for the swww -> awww repository transition
     elif [[ "$1" == "swww" ]] && pacman -Qi "awww" &> /dev/null; then
         return 0
     else
@@ -80,6 +79,31 @@ install_yay() {
     fi
 }
 
+# Robust wrapper engine to install and verify packages individually
+robust_install() {
+    local name="$1"
+    local cmd="$2"
+    
+    echo -e "\n${GREEN}:: Processing: $name...${NC}"
+    eval "$cmd"
+    
+    if is_installed "$name"; then
+        return 0
+    else
+        echo -e "${YELLOW}:: Warning: $name installation failed. Attempting resolution...${NC}"
+        # Auto-Resolution Mode: Refresh keys and resolve minor lockups
+        sudo pacman -Sy
+        eval "$cmd"
+        
+        if is_installed "$name"; then
+            return 0
+        else
+            echo -e "${RED}:: Error: Unable to automatically resolve $name installation.${NC}"
+            return 1
+        fi
+    fi
+}
+
 ## --- MAIN MENU LOOP ---
 while true; do
     show_header
@@ -122,9 +146,57 @@ while true; do
         10) sudo pacman -S --noconfirm grub-btrfs && manage_service "grub-btrfsd" ;;
         11) ensure_yay && yay -S --noconfirm hyprpolkitagent ;;
         12)
+            echo ":: Executing sequential installation master-list..."
+            failed_apps=()
+            
+            # 1. yay
             install_yay
-            sudo pacman -S --needed --noconfirm dunst kate thunar kitty snapper snap-pac grub-btrfs
-            yay -S --needed --noconfirm brave-bin swww hyprpolkitagent ;;
+            if ! command -v yay &> /dev/null; then failed_apps+=("yay (AUR helper failing entirely)"); fi
+            
+            # 2. brave-bin
+            if ! robust_install "brave-bin" "ensure_yay && yay -S --noconfirm brave-bin"; then failed_apps+=("brave-bin"); fi
+            
+            # 3. dunst
+            if ! robust_install "dunst" "sudo pacman -S --noconfirm dunst && manage_service 'dunst'"; then failed_apps+=("dunst"); fi
+            
+            # 4. kate
+            if ! robust_install "kate" "sudo pacman -S --noconfirm kate"; then failed_apps+=("kate"); fi
+            
+            # 5. swww / awww
+            if ! robust_install "swww" "ensure_yay && (yay -S --noconfirm swww || yay -S --noconfirm awww)"; then failed_apps+=("swww/awww"); fi
+            
+            # 6. thunar
+            if ! robust_install "thunar" "sudo pacman -S --noconfirm thunar"; then failed_apps+=("thunar"); fi
+            
+            # 7. snapper
+            if ! robust_install "snapper" "sudo pacman -S --noconfirm snapper"; then failed_apps+=("snapper"); fi
+            
+            # 8. snap-pac
+            if ! robust_install "snap-pac" "sudo pacman -S --noconfirm snap-pac"; then failed_apps+=("snap-pac"); fi
+            
+            # 9. grub-btrfs
+            if ! robust_install "grub-btrfs" "sudo pacman -S --noconfirm grub-btrfs && manage_service 'grub-btrfsd'"; then failed_apps+=("grub-btrfs"); fi
+            
+            # 10. hyprpolkitagent
+            if ! robust_install "hyprpolkitagent" "ensure_yay && yay -S --noconfirm hyprpolkitagent"; then failed_apps+=("hyprpolkitagent"); fi
+            
+            # --- FINAL EVALUATION BREAKPOINT ---
+            echo -e "\n==========================================="
+            if [ ${#failed_apps[@]} -eq 0 ]; then
+                echo -e "${GREEN}✔ Master Installation Finished Successfully with zero errors!${NC}"
+            else
+                echo -e "${RED}❌ Warning: The following packages failed to install:${NC}"
+                for app in "${failed_apps[@]}"; do
+                    echo -e "   - $app"
+                done
+                echo -e "\n${YELLOW}Troubleshooting Tips:${NC}"
+                echo "1. If snapper/snap-pac failed, ensure your file system is configured as BTRFS."
+                echo "2. Check your internet connection or sync keys running 'sudo pacman-key --refresh'."
+            fi
+            echo "==========================================="
+            echo "Press Enter to return to the main menu..."
+            read -r < /dev/tty
+            ;;
         13)
             echo -e "\n${RED}:: Warning: This will uninstall the menu software safely (Except Kitty).${NC}"
             read -p ":: Are you sure you want to proceed? (y/n): " clean_yn < /dev/tty
@@ -133,8 +205,6 @@ while true; do
                 sudo systemctl disable --now dunst grub-btrfsd hyprpolkitagent &> /dev/null
 
                 echo ":: Safely removing main packages..."
-                # CRITICAL: Ordered specifically to clear out dependent packages (snap-pac/grub-btrfs) BEFORE core packages (snapper)
-                # Note: Includes both 'swww' and 'awww' to match system states completely; 'kitty' remains omitted.
                 for target_pkg in snap-pac grub-btrfs snapper brave-bin dunst kate swww awww thunar hyprpolkitagent yay-bin yay; do
                     if is_installed "$target_pkg"; then
                         sudo pacman -Rns --noconfirm "$target_pkg"
@@ -143,7 +213,7 @@ while true; do
 
                 echo ":: Cleaning leftover dependencies and package caches..."
                 sudo pacman -Sc --noconfirm
-
+                
                 echo ":: Cleanup complete!"
                 sleep 2
             fi
